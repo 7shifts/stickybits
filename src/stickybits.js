@@ -72,6 +72,7 @@ function Stickybits(target, obj) {
     -  defined the position
   */
   p.positionVal = this.definePosition() || 'fixed'
+  p.paddingPosition = p.verticalPosition === 'top' ? 'paddingTop' : 'paddingBottom'
   const vp = p.verticalPosition
   const ns = p.noStyles
   const pv = p.positionVal
@@ -233,6 +234,8 @@ Stickybits.prototype.manageState = function manageState(item) {
   const it = item
   const e = it.el
   const p = it.props
+  const parent = it.parent
+  const pstl = parent.style
   const state = it.state
   const start = it.stickyStart
   const stop = it.stickyStop
@@ -244,6 +247,7 @@ Stickybits.prototype.manageState = function manageState(item) {
   const sticky = p.stickyClass
   const stuck = p.stuckClass
   const vp = p.verticalPosition
+  const pp = p.paddingPosition
   /*
     requestAnimationFrame
     ---
@@ -284,12 +288,14 @@ Stickybits.prototype.manageState = function manageState(item) {
       if (ns) return
       stl.bottom = ''
       stl[vp] = `${p.stickyBitStickyOffset}px`
+      if (pv === 'fixed') pstl[pp] = `${e.clientHeight}px`
     })
   } else if (isSticky) {
     it.state = 'default'
     rAF(() => {
       tC(e, sticky)
       if (pv === 'fixed') stl.position = ''
+      pstl[pp] = ''
     })
   } else if (isStuck) {
     it.state = 'stuck'
@@ -299,6 +305,7 @@ Stickybits.prototype.manageState = function manageState(item) {
       stl.top = ''
       stl.bottom = '0'
       stl.position = 'absolute'
+      if (pv === 'fixed') pstl[pp] = `${e.clientHeight}px`
     })
   }
   return it
