@@ -72,6 +72,7 @@ function Stickybits(target, obj) {
     -  defined the position
   */
   p.positionVal = this.definePosition() || 'fixed';
+  p.paddingPosition = p.verticalPosition === 'top' ? 'paddingTop' : 'paddingBottom';
   var vp = p.verticalPosition;
   var ns = p.noStyles;
   var pv = p.positionVal;
@@ -157,6 +158,7 @@ Stickybits.prototype.addInstance = function addInstance(el, props) {
   item.stateContainer = function () {
     _this.manageState(item);
   };
+  this.manageState(item);
   se.addEventListener('scroll', item.stateContainer);
   return item;
 };
@@ -193,10 +195,12 @@ Stickybits.prototype.getClosestParent = function getClosestParent(el, matchSelec
 Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets(item) {
   var it = item;
   var p = it.props;
+  var se = p.scrollEl;
   var parent = it.parent;
   var iw = it.isWin;
   var scrollElOffset = 0;
-  var stickyStart = parent.getBoundingClientRect().top;
+  var scroll = it.isWin ? se.scrollY || se.pageYOffset : se.scrollTop;
+  var stickyStart = scroll + parent.getBoundingClientRect().top;
   if (!iw && p.positionVal === 'fixed') {
     scrollElOffset = p.scrollEl.getBoundingClientRect().top;
     stickyStart = parent.getBoundingClientRect().top - scrollElOffset;
@@ -236,6 +240,8 @@ Stickybits.prototype.manageState = function manageState(item) {
   var it = item;
   var e = it.el;
   var p = it.props;
+  var parent = it.parent;
+  var pstl = parent.style;
   var state = it.state;
   var start = it.stickyStart;
   var stop = it.stickyStop;
@@ -247,6 +253,7 @@ Stickybits.prototype.manageState = function manageState(item) {
   var sticky = p.stickyClass;
   var stuck = p.stuckClass;
   var vp = p.verticalPosition;
+  var pp = p.paddingPosition;
   /*
     requestAnimationFrame
     ---
@@ -287,12 +294,14 @@ Stickybits.prototype.manageState = function manageState(item) {
       if (ns) return;
       stl.bottom = '';
       stl[vp] = p.stickyBitStickyOffset + 'px';
+      if (pv === 'fixed') pstl[pp] = e.clientHeight + 'px';
     });
   } else if (isSticky) {
     it.state = 'default';
     rAF(function () {
       tC(e, sticky);
       if (pv === 'fixed') stl.position = '';
+      pstl[pp] = '';
     });
   } else if (isStuck) {
     it.state = 'stuck';
@@ -302,6 +311,7 @@ Stickybits.prototype.manageState = function manageState(item) {
       stl.top = '';
       stl.bottom = '0';
       stl.position = 'absolute';
+      if (pv === 'fixed') pstl[pp] = e.clientHeight + 'px';
     });
   }
   return it;

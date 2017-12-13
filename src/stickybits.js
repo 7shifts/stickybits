@@ -156,6 +156,7 @@ Stickybits.prototype.addInstance = function addInstance(el, props) {
   item.stateContainer = () => {
     this.manageState(item)
   }
+  this.manageState(item)
   se.addEventListener('scroll', item.stateContainer)
   return item
 }
@@ -191,10 +192,12 @@ Stickybits.prototype.getClosestParent = function getClosestParent(el, matchSelec
 Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets(item) {
   const it = item
   const p = it.props
+  const se = p.scrollEl
   const parent = it.parent
   const iw = it.isWin
   let scrollElOffset = 0
-  let stickyStart = parent.getBoundingClientRect().top
+  var scroll = it.isWin ? se.scrollY || se.pageYOffset : se.scrollTop;
+  var stickyStart = scroll + parent.getBoundingClientRect().top;
   if (!iw && p.positionVal === 'fixed') {
     scrollElOffset = p.scrollEl.getBoundingClientRect().top
     stickyStart = parent.getBoundingClientRect().top - scrollElOffset
