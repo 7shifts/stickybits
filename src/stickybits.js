@@ -1,3 +1,5 @@
+import debounce from '../node_modules/lodash/debounce'
+
 /*
   STICKYBITS 💉
   --------
@@ -61,6 +63,7 @@ function Stickybits(target, obj) {
     scrollEl: o.scrollEl || window,
     stickyClass: o.stickyClass || 'js-is-sticky',
     stuckClass: o.stuckClass || 'js-is-stuck',
+    additionalClasses: o.additionalClasses || {},
     useStickyClasses: o.useStickyClasses || false,
     verticalPosition: o.verticalPosition || 'top',
   }
@@ -154,10 +157,11 @@ Stickybits.prototype.addInstance = function addInstance(el, props) {
   this.computeScrollOffsets(item)
   item.state = 'default'
   item.stateContainer = () => {
+    this.computeScrollOffsets(item)
     this.manageState(item)
   }
   this.manageState(item)
-  se.addEventListener('scroll', item.stateContainer)
+  se.addEventListener('scroll', debounce(item.stateContainer, 7))
   return item
 }
 
@@ -195,16 +199,24 @@ Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets(item) 
   const se = p.scrollEl
   const parent = it.parent
   const iw = it.isWin
+  const scroll = it.isWin ? se.scrollY || se.pageYOffset : se.scrollTop
+  const ac = p.additionalClasses
   let scrollElOffset = 0
-  var scroll = it.isWin ? se.scrollY || se.pageYOffset : se.scrollTop;
-  var stickyStart = scroll + parent.getBoundingClientRect().top;
+  let stickyStart = scroll + parent.getBoundingClientRect().top
   if (!iw && p.positionVal === 'fixed') {
-    scrollElOffset = p.scrollEl.getBoundingClientRect().top
+    scrollElOffset = se.getBoundingClientRect().top
     stickyStart = parent.getBoundingClientRect().top - scrollElOffset
   }
   it.offset = scrollElOffset + p.stickyBitStickyOffset
   it.stickyStart = stickyStart
   it.stickyStop = (it.stickyStart + parent.offsetHeight) - (it.el.offsetHeight - it.offset)
+
+  it.modifiers = {}
+  Object.keys(ac).forEach((cls) => {
+    it.modifiers[cls] = {
+      threshold: stickyStart + ac[cls],
+    }
+  })
   return it
 }
 
@@ -243,6 +255,7 @@ Stickybits.prototype.manageState = function manageState(item) {
   const start = it.stickyStart
   const stop = it.stickyStop
   const stl = e.style
+  const md = it.modifiers
   // cache props
   const ns = p.noStyles
   const pv = p.positionVal
@@ -308,9 +321,20 @@ Stickybits.prototype.manageState = function manageState(item) {
       stl.top = ''
       stl.bottom = '0'
       stl.position = 'absolute'
-      if (pv === 'fixed') pstl[pp] = `${e.clientHeight}px`
+      pstl[pp] = `${e.clientHeight}px`
     })
   }
+
+  if (Object.keys(md).length) {
+    Object.keys(md).forEach((cls) => {
+      if (scroll >= md[cls].threshold) {
+        tC(e, null, cls)
+      } else {
+        tC(e, cls)
+      }
+    })
+  }
+
   return it
 }
 
@@ -322,12 +346,16 @@ Stickybits.prototype.manageState = function manageState(item) {
 Stickybits.prototype.removeInstance = function removeInstance(instance) {
   const e = instance.el
   const p = instance.props
+  const md = instance.modifiers
   const tC = this.toggleClasses
   e.style.position = ''
   e.style[p.verticalPosition] = ''
   tC(e, p.stickyClass)
   tC(e, p.stuckClass)
   tC(e.parentNode, p.parentClass)
+  Object.keys(md).forEach((cls) => {
+    tC(e, cls)
+  })
 }
 
 /*
@@ -339,7 +367,7 @@ Stickybits.prototype.removeInstance = function removeInstance(instance) {
 Stickybits.prototype.cleanup = function cleanup() {
   for (let i = 0; i < this.instances.length; i += 1) {
     const instance = this.instances[i]
-    instance.props.scrollEl.removeEventListener('scroll', instance.stateContainer)
+    instance.props.scrollEl.removeEventListener('scroll', debounce(instance.stateContainer, 7))
     this.removeInstance(instance)
   }
   this.manageState = false
