@@ -246,8 +246,6 @@ Stickybits.prototype.manageState = function manageState (item) {
   const parent = it.parent
   const pstl = parent.style
   const state = it.state
-  const start = it.stickyStart
-  const stop = it.stickyStop
   const stl = e.style
   const ac = it.additionalClasses
   // cache props
@@ -277,17 +275,16 @@ Stickybits.prototype.manageState = function manageState (item) {
     define scroll vars
     ---
     - scroll
-    - notSticky
+    - toSticky
+    - toDefault
+    - toStuck
     - isSticky
-    - isStuck
   */
   const tC = this.toggleClasses
+  const cO = this.computeScrollOffsets
   const scroll = (this.isWin || se.getBoundingClientRect().top)
     ? window.scrollY || window.pageYOffset
     : se.scrollTop
-  const notSticky = scroll > start && scroll < stop && (state === 'default' || state === 'stuck')
-  const isSticky = scroll <= start && state === 'sticky'
-  const isStuck = scroll >= stop && state === 'sticky'
   /*
     Unnamed arrow functions within this block
     ---
@@ -295,44 +292,53 @@ Stickybits.prototype.manageState = function manageState (item) {
     - view test.stickybits.js
       - `stickybits .manageState  `position: fixed` interface` for more awareness 👀
   */
-  if (notSticky) {
-    it.state = 'sticky'
-    rAF(() => {
+  rAF(() => {
+    cO(it)
+    const start = it.stickyStart
+    const stop = it.stickyStop
+
+    const toSticky = scroll > start && scroll < stop && (state === 'default' || state === 'stuck')
+    const toDefault = scroll <= start && state === 'sticky'
+    const toStuck = scroll >= stop && state === 'sticky'
+    const isSticky = scroll > start && scroll < stop && state === 'sticky'
+
+    if (toSticky) {
+      it.state = 'sticky'
       tC(e, stuck, sticky)
       stl.position = pv
       if (ns) return
       stl.bottom = ''
       stl[vp] = `${p.stickyBitStickyOffset}px`
       if (pv === 'fixed') pstl[pp] = `${e.clientHeight}px`
-    })
-  } else if (isSticky) {
-    it.state = 'default'
-    rAF(() => {
+    } else if (toDefault) {
+      it.state = 'default'
       tC(e, sticky)
-      if (pv === 'fixed') stl.position = ''
+      if (pv !== 'fixed' || ns) return
+      stl.position = ''
       pstl[pp] = ''
-    })
-  } else if (isStuck) {
-    it.state = 'stuck'
-    rAF(() => {
+    } else if (toStuck) {
+      it.state = 'stuck'
       tC(e, sticky, stuck)
       if (pv !== 'fixed' || ns) return
       stl.top = ''
       stl.bottom = '0'
       stl.position = 'absolute'
       pstl[pp] = `${e.clientHeight}px`
-    })
-  }
+    } else if (isSticky) {
+      // update the padding based on the height of the item
+      if (pv === 'fixed') pstl[pp] = `${e.clientHeight}px`
+    }
 
-  if (Object.keys(ac).length) {
-    Object.keys(ac).forEach((cls) => {
-      if (scroll >= ac[cls].threshold) {
-        tC(e, null, cls)
-      } else {
-        tC(e, cls)
-      }
-    })
-  }
+    if (Object.keys(ac).length) {
+      Object.keys(ac).forEach((cls) => {
+        if (scroll >= ac[cls].threshold) {
+          tC(e, null, cls)
+        } else {
+          tC(e, cls)
+        }
+      })
+    }
+  })
 
   return it
 }

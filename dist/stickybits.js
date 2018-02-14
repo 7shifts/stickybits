@@ -74,6 +74,7 @@ function Stickybits(target, obj) {
     scrollEl: document.querySelector(o.scrollEl) || window,
     stickyClass: o.stickyClass || 'js-is-sticky',
     stuckClass: o.stuckClass || 'js-is-stuck',
+    additionalClasses: o.additionalClasses || {},
     useStickyClasses: o.useStickyClasses || false,
     verticalPosition: o.verticalPosition || 'top'
   };
@@ -85,6 +86,7 @@ function Stickybits(target, obj) {
     -  defined the position
   */
   p.positionVal = this.definePosition() || 'fixed';
+  p.paddingPosition = p.verticalPosition === 'top' ? 'paddingTop' : 'paddingBottom';
   var vp = p.verticalPosition;
   var ns = p.noStyles;
   var pv = p.positionVal;
@@ -159,12 +161,14 @@ Stickybits.prototype.addInstance = function addInstance(el, props) {
   };
   this.isWin = this.props.scrollEl === window;
   var se = this.isWin ? window : this.getClosestParent(item.el, item.props.scrollEl);
-  this.computeScrollOffsets(item);
   item.parent.className += ' ' + props.parentClass;
   item.state = 'default';
   item.stateContainer = function () {
-    return _this.manageState(item);
+    _this.computeScrollOffsets(item);
+    _this.manageState(item);
   };
+  this.computeScrollOffsets(item);
+  this.manageState(item);
   se.addEventListener('scroll', item.stateContainer);
   return item;
 };
@@ -202,13 +206,23 @@ Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets(item) 
   var it = item;
   var p = it.props;
   var parent = it.parent;
+  var ac = p.additionalClasses;
+  var scroll = it.isWin ? p.scrollEl.scrollY || p.scrollEl.pageYOffset : p.scrollEl.scrollTop;
   var isCustom = !this.isWin && p.positionVal === 'fixed';
   var isBottom = p.verticalPosition !== 'bottom';
   var scrollElOffset = isCustom ? p.scrollEl.getBoundingClientRect().top : 0;
-  var stickyStart = isCustom ? parent.getBoundingClientRect().top - scrollElOffset : parent.getBoundingClientRect().top;
+  var stickyStart = isCustom ? parent.getBoundingClientRect().top - scrollElOffset : parent.getBoundingClientRect().top + scroll;
   it.offset = scrollElOffset + p.stickyBitStickyOffset;
   it.stickyStart = isBottom ? stickyStart - it.offset : 0;
   it.stickyStop = isBottom ? stickyStart + parent.offsetHeight - (it.el.offsetHeight + it.offset) : stickyStart + parent.offsetHeight;
+
+  it.additionalClasses = {};
+  Object.keys(ac).forEach(function (cls) {
+    it.additionalClasses[cls] = {
+      threshold: stickyStart + ac[cls]
+    };
+  });
+
   return it;
 };
 
@@ -241,10 +255,11 @@ Stickybits.prototype.manageState = function manageState(item) {
   var it = item;
   var e = it.el;
   var p = it.props;
+  var parent = it.parent;
+  var pstl = parent.style;
   var state = it.state;
-  var start = it.stickyStart;
-  var stop = it.stickyStop;
   var stl = e.style;
+  var ac = it.additionalClasses;
   // cache props
   var ns = p.noStyles;
   var pv = p.positionVal;
@@ -252,6 +267,7 @@ Stickybits.prototype.manageState = function manageState(item) {
   var sticky = p.stickyClass;
   var stuck = p.stuckClass;
   var vp = p.verticalPosition;
+  var pp = p.paddingPosition;
   /*
     requestAnimationFrame
     ---
@@ -267,15 +283,14 @@ Stickybits.prototype.manageState = function manageState(item) {
     define scroll vars
     ---
     - scroll
-    - notSticky
+    - toSticky
+    - toDefault
+    - toStuck
     - isSticky
-    - isStuck
   */
   var tC = this.toggleClasses;
+  var cO = this.computeScrollOffsets;
   var scroll = this.isWin || se.getBoundingClientRect().top ? window.scrollY || window.pageYOffset : se.scrollTop;
-  var notSticky = scroll > start && scroll < stop && (state === 'default' || state === 'stuck');
-  var isSticky = scroll <= start && state === 'sticky';
-  var isStuck = scroll >= stop && state === 'sticky';
   /*
     Unnamed arrow functions within this block
     ---
@@ -283,31 +298,54 @@ Stickybits.prototype.manageState = function manageState(item) {
     - view test.stickybits.js
       - `stickybits .manageState  `position: fixed` interface` for more awareness 👀
   */
-  if (notSticky) {
-    it.state = 'sticky';
-    rAF(function () {
+  rAF(function () {
+    cO(it);
+    var start = it.stickyStart;
+    var stop = it.stickyStop;
+
+    var toSticky = scroll > start && scroll < stop && (state === 'default' || state === 'stuck');
+    var toDefault = scroll <= start && state === 'sticky';
+    var toStuck = scroll >= stop && state === 'sticky';
+    var isSticky = scroll > start && scroll < stop && state === 'sticky';
+
+    if (toSticky) {
+      it.state = 'sticky';
       tC(e, stuck, sticky);
       stl.position = pv;
       if (ns) return;
       stl.bottom = '';
       stl[vp] = p.stickyBitStickyOffset + 'px';
-    });
-  } else if (isSticky) {
-    it.state = 'default';
-    rAF(function () {
+      if (pv === 'fixed') pstl[pp] = e.clientHeight + 'px';
+    } else if (toDefault) {
+      it.state = 'default';
       tC(e, sticky);
-      if (pv === 'fixed') stl.position = '';
-    });
-  } else if (isStuck) {
-    it.state = 'stuck';
-    rAF(function () {
+      if (pv !== 'fixed' || ns) return;
+      stl.position = '';
+      pstl[pp] = '';
+    } else if (toStuck) {
+      it.state = 'stuck';
       tC(e, sticky, stuck);
       if (pv !== 'fixed' || ns) return;
       stl.top = '';
       stl.bottom = '0';
       stl.position = 'absolute';
-    });
-  }
+      pstl[pp] = e.clientHeight + 'px';
+    } else if (isSticky) {
+      // update the padding based on the height of the item
+      if (pv === 'fixed') pstl[pp] = e.clientHeight + 'px';
+    }
+
+    if (Object.keys(ac).length) {
+      Object.keys(ac).forEach(function (cls) {
+        if (scroll >= ac[cls].threshold) {
+          tC(e, null, cls);
+        } else {
+          tC(e, cls);
+        }
+      });
+    }
+  });
+
   return it;
 };
 
@@ -319,12 +357,16 @@ Stickybits.prototype.manageState = function manageState(item) {
 Stickybits.prototype.removeInstance = function removeInstance(instance) {
   var e = instance.el;
   var p = instance.props;
+  var ac = instance.additionalClasses;
   var tC = this.toggleClasses;
   e.style.position = '';
   e.style[p.verticalPosition] = '';
   tC(e, p.stickyClass);
   tC(e, p.stuckClass);
   tC(e.parentNode, p.parentClass);
+  Object.keys(ac).forEach(function (cls) {
+    tC(e, cls);
+  });
 };
 
 /*
