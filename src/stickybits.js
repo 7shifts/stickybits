@@ -191,8 +191,8 @@ Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets (item)
   const p = it.props
   const parent = it.parent
   const ac = p.additionalClasses
-  const scroll = it.isWin ? p.scrollEl.scrollY || p.scrollEl.pageYOffset : p.scrollEl.scrollTop
-  const isCustom = !this.isWin && p.positionVal === 'fixed'
+  const scroll = p.scrollEl === window ? p.scrollEl.scrollY || p.scrollEl.pageYOffset : p.scrollEl.scrollTop
+  const isCustom = p.scrollEl !== window && p.positionVal === 'fixed'
   const isBottom = p.verticalPosition !== 'bottom'
   const scrollElOffset = isCustom ? p.scrollEl.getBoundingClientRect().top : 0
   const stickyStart = isCustom
@@ -207,7 +207,7 @@ Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets (item)
   it.additionalClasses = {}
   Object.keys(ac).forEach((cls) => {
     it.additionalClasses[cls] = {
-      threshold: stickyStart + ac[cls],
+      threshold: stickyStart + ac[cls]
     }
   })
 

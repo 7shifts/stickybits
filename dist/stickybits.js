@@ -207,8 +207,8 @@ Stickybits.prototype.computeScrollOffsets = function computeScrollOffsets(item) 
   var p = it.props;
   var parent = it.parent;
   var ac = p.additionalClasses;
-  var scroll = it.isWin ? p.scrollEl.scrollY || p.scrollEl.pageYOffset : p.scrollEl.scrollTop;
-  var isCustom = !this.isWin && p.positionVal === 'fixed';
+  var scroll = p.scrollEl === window ? p.scrollEl.scrollY || p.scrollEl.pageYOffset : p.scrollEl.scrollTop;
+  var isCustom = p.scrollEl !== window && p.positionVal === 'fixed';
   var isBottom = p.verticalPosition !== 'bottom';
   var scrollElOffset = isCustom ? p.scrollEl.getBoundingClientRect().top : 0;
   var stickyStart = isCustom ? parent.getBoundingClientRect().top - scrollElOffset : parent.getBoundingClientRect().top + scroll;
